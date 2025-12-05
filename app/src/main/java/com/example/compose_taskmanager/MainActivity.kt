@@ -6,6 +6,7 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.Orientation
@@ -15,6 +16,7 @@ import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.staggeredgrid.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -27,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
@@ -50,7 +53,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            setContent {
                 val configuration = LocalConfiguration.current
                 val items = rememberListState()
                 val staggeredGridState = rememberLazyStaggeredGridState()
@@ -138,12 +140,11 @@ class MainActivity : ComponentActivity() {
                                 completedItem.onComplete = true
                             },
                             isScaling = isScaling,
-                            modifier = Modifier.padding(4.dp)
+                            //modifier = Modifier.padding(4.dp)
                         )
                     }
                 }
             }
-        }
     }
 
     @Composable
@@ -168,7 +169,7 @@ class MainActivity : ComponentActivity() {
     ){
         val swipeableState = rememberSwipeableState(initialValue = false)
         val density = LocalDensity.current
-        val actionWidth = 70.dp
+        val actionWidth = 50.dp
         val anchors = mapOf(
             0f to false,
             with(density){ actionWidth.toPx() } to true
@@ -176,7 +177,8 @@ class MainActivity : ComponentActivity() {
 
         Box(
             modifier = modifier
-                .fillMaxWidth()
+                .width(width.dp)
+                .height(height.dp)
                 .swipeable(
                     state = swipeableState,
                     anchors = anchors,
@@ -186,46 +188,66 @@ class MainActivity : ComponentActivity() {
                 )
         ){
             Row(
-                modifier = modifier.fillMaxSize().height(height.dp),
+                modifier = modifier.width(width.dp)
+                    .height(height.dp)
+                    .graphicsLayer {
+                        shape = RoundedCornerShape(15.dp)
+                        clip = true // Включаем clip в graphicsLayer
+                    }
+                    .background(Color.Red),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
-            ){}
-//            ){
-//                IconButton(onClick = {onDelete(item)},
-//                    modifier = Modifier.background(Color.Red)
-//                        .width(actionWidth)
-//                        .height(height.dp)
-//                ){
-//                    Icon(
-//                        imageVector = Icons.Filled.Delete,
-//                        contentDescription = "Delete",
-//                        tint = Color.White
-//                    )
-//                }
-        }
-        Column(
-            modifier = Modifier
-                .width(width.dp)
-                .height(height.dp)
-               // .offset{IntoOffset(swipeableState.offset.value.roundToInt(), 0)}
-
-                .clip(RoundedCornerShape(15.dp))
-                .border(
-                    width = 5.dp,
-                    color = Color(101, 67, 33),
-                    shape = RoundedCornerShape(15.dp)
+            ){
+                Icon(
+                    imageVector = Icons.Filled.Delete,
+                    contentDescription = "Delete",
+                    tint = Color.White,
+                    modifier = Modifier.padding(start = 10.dp)
                 )
-                .background(Color(245, 245, 220))
-                .padding(10.dp)
-        ) {
-            Text(
-                "Id: ${item.id}",
-                fontSize = 20.sp,
-                color = Color(34, 139, 34),
-                fontWeight = FontWeight.Bold
-            )
+            }
+            Row(
+                modifier = modifier
+                    .width(width.dp)
+                    .height(height.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ){
+                val offsetPX = swipeableState.offset.value
 
+                Column(
+                    modifier = Modifier
+                        .width(width.dp)
+                        .height(height.dp)
+                        .graphicsLayer{
+                            shape = RoundedCornerShape(15.dp)
+                            clip = true
+                            translationX = offsetPX
+                        }
+                        .border(
+                            width = 5.dp,
+                            color = Color(101, 67, 33),
+                            shape = RoundedCornerShape(15.dp)
+                        )
+                        .background(Color(245, 245, 220))
+
+                ) {
+                    Text(
+                        "Id: ${item.id}",
+                        fontSize = 20.sp,
+                        color = Color(34, 139, 34),
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(10.dp)
+                    )
+                }
+            }
         }
+//        val offset by animateFloatAsState(
+//            targetValue = if (swipeableState.currentValue) {
+//                if (swipeableState.offset.value > 0) 0f else -width.toFloat()
+//            } else 0f,
+//            label = "offsetAnimation"
+//        )
+
 
         LaunchedEffect(swipeableState.currentValue) {
             if(swipeableState.currentValue){
