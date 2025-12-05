@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.staggeredgrid.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -182,13 +184,14 @@ class MainActivity : ComponentActivity() {
                 .swipeable(
                     state = swipeableState,
                     anchors = anchors,
-                    thresholds = {_, _ -> FractionalThreshold(0.3f)},
+                    thresholds = { _, _ -> FractionalThreshold(0.3f) },
                     orientation = Orientation.Horizontal,
                     enabled = !isScaling
                 )
         ){
             Row(
-                modifier = modifier.width(width.dp)
+                modifier = modifier
+                    .width(width.dp)
                     .height(height.dp)
                     .graphicsLayer {
                         shape = RoundedCornerShape(15.dp)
@@ -209,7 +212,7 @@ class MainActivity : ComponentActivity() {
                 modifier = modifier
                     .width(width.dp)
                     .height(height.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ){
                 val offsetPX = swipeableState.offset.value
@@ -218,7 +221,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier
                         .width(width.dp)
                         .height(height.dp)
-                        .graphicsLayer{
+                        .graphicsLayer {
                             shape = RoundedCornerShape(15.dp)
                             clip = true
                             translationX = offsetPX
@@ -236,8 +239,15 @@ class MainActivity : ComponentActivity() {
                         fontSize = 20.sp,
                         color = Color(34, 139, 34),
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(10.dp)
                     )
+                    Box( contentAlignment = Alignment.CenterEnd){
+                        Icon(
+                            imageVector = if(item.onComplete) Icons.Filled.Check else Icons.Filled.Close,
+                            tint = if(item.onComplete) Color.Green else Color.Red,
+                            contentDescription = if (item.onComplete) "complete" else "uncomplete",
+                            modifier = Modifier.padding(end = 10.dp)
+                        )
+                    }
                 }
             }
         }
