@@ -1,35 +1,48 @@
 package com.example.compose_taskmanager
 
-import android.graphics.pdf.models.ListItem
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.calculateZoom
-import androidx.compose.foundation.gestures.detectTransformGestures
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.lazy.staggeredgrid.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.itemsIndexed
+import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.changedToUp
@@ -37,20 +50,19 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.*
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material.ExperimentalWearMaterialApi
 import androidx.wear.compose.material.FractionalThreshold
 import androidx.wear.compose.material.rememberSwipeableState
 import androidx.wear.compose.material.swipeable
-import com.example.compose_taskmanager.ui.theme.Compose_taskmanagerTheme
-import kotlinx.serialization.builtins.ArraySerializer
-import kotlin.div
+import kotlinx.coroutines.delay
 import kotlin.math.floor
-import kotlin.math.roundToInt
 import kotlin.random.Random
 
 class MainActivity : ComponentActivity() {
+    lateinit var winTask: WindowTask
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -64,6 +76,7 @@ class MainActivity : ComponentActivity() {
                 val minItemWidthDp = 200.dp
                 val minColumn = 1
                 val maxColumn = 5
+                var stateExp = false
 
                 val screenWidthDp = configuration.screenWidthDp.dp
                 val columnCount = remember(key1 = screenWidthDp, key2 = scale) {
@@ -74,6 +87,7 @@ class MainActivity : ComponentActivity() {
                 }
 
                 var isScaling by remember {mutableStateOf(false)}
+                winTask = WindowTask()
 
                 LaunchedEffect(Unit){
                     val tempList = mutableListOf<ListItem>()
@@ -93,8 +107,6 @@ class MainActivity : ComponentActivity() {
                     }
                     items.addAll(tempList)
                 }
-
-
                 LazyVerticalStaggeredGrid(
                     //rows = StaggeredGridCells.Fixed(3),
                     StaggeredGridCells.Fixed(columnCount.value),
@@ -131,7 +143,7 @@ class MainActivity : ComponentActivity() {
                                 item.height,
                                 widthScale
                             ) else item.height)
-                        SwipeableListItem(
+                        stateExp = SwipeableListItem(
                             item = item,
                             width = width,
                             height = height,
@@ -139,13 +151,14 @@ class MainActivity : ComponentActivity() {
                                 items.remove(deleteItem)
                             },
                             onComplete = {completedItem ->
-                                completedItem.onComplete = true
+                                completedItem.onComplete = !completedItem.onComplete
                             },
                             isScaling = isScaling,
                             //modifier = Modifier.padding(4.dp)
                         )
                     }
                 }
+                winTask.ExpandableBlock(stateExp, onDismiss = {stateExp = false})
             }
     }
 
@@ -155,7 +168,7 @@ class MainActivity : ComponentActivity() {
     }
 
     enum class SwipeAction{
-        DELETE, COMPLETE
+        DELETE, COMPLETE, NONE
     }
 
     @OptIn(ExperimentalWearMaterialApi::class)
@@ -168,15 +181,21 @@ class MainActivity : ComponentActivity() {
         onComplete: (ListItem) -> Unit,
         isScaling: Boolean,
         modifier: Modifier = Modifier
-    ){
-        val swipeableState = rememberSwipeableState(initialValue = false)
+    ): Boolean{
+        var expanded by remember {mutableStateOf(false)}
+        val swipeableState = rememberSwipeableState(initialValue = SwipeAction.NONE)
         val density = LocalDensity.current
-        val actionWidth = 50.dp
-        val anchors = mapOf(
-            0f to false,
-            with(density){ actionWidth.toPx() } to true
-        )
+        val actionWidth = 40.dp
+        val actionWidthPx = with(density) {actionWidth.toPx()}
+        val anchors: Map<Float, SwipeAction> = mapOf(
+            -actionWidthPx to SwipeAction.COMPLETE,
+            0f to SwipeAction.NONE,
+            actionWidthPx to SwipeAction.DELETE
 
+
+//            0f to false,
+//            with(density){ actionWidth.toPx() } to true,
+        )
         Box(
             modifier = modifier
                 .width(width.dp)
@@ -191,14 +210,15 @@ class MainActivity : ComponentActivity() {
         ){
             Row(
                 modifier = modifier
-                    .width(width.dp)
+                    .width((width/2).dp)
                     .height(height.dp)
+                    .align(Alignment.CenterStart)
                     .graphicsLayer {
                         shape = RoundedCornerShape(15.dp)
                         clip = true // Включаем clip в graphicsLayer
                     }
                     .background(Color.Red),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.CenterVertically
             ){
                 Icon(
@@ -208,6 +228,31 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.padding(start = 10.dp)
                 )
             }
+            var delayedState by remember {mutableStateOf(item.onComplete)}
+            LaunchedEffect(item.onComplete) {
+                delay(350)                    // ← задержка 1 сек
+                delayedState = item.onComplete // ← применяем изменение
+            }
+            Row(
+                modifier = modifier
+                    .width((width/2).dp)
+                    .height(height.dp)
+                    .align(Alignment.CenterEnd)
+                    .graphicsLayer {
+                        shape = RoundedCornerShape(15.dp)
+                        clip = true // Включаем clip в graphicsLayer
+                    }
+                    .background( if(delayedState) Color.Red else Color(34, 139, 34)),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ){
+                Icon(
+                    imageVector = if(delayedState) Icons.Filled.Close else Icons.Filled.Check,
+                    contentDescription = "Delete",
+                    tint = Color.White,
+                    modifier = Modifier.padding(end = 10.dp),
+                )
+            }
             Row(
                 modifier = modifier
                     .width(width.dp)
@@ -215,6 +260,7 @@ class MainActivity : ComponentActivity() {
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ){
+                //winTask.ExpandableBlock(expanded, onDismiss = {expanded = false})
                 val offsetPX = swipeableState.offset.value
 
                 Column(
@@ -231,46 +277,51 @@ class MainActivity : ComponentActivity() {
                             color = Color(101, 67, 33),
                             shape = RoundedCornerShape(15.dp)
                         )
+                        .clickable {expanded = true}
                         .background(Color(245, 245, 220))
 
                 ) {
-                    Text(
-                        "Id: ${item.id}",
-                        fontSize = 20.sp,
-                        color = Color(34, 139, 34),
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Box( contentAlignment = Alignment.CenterEnd){
-                        Icon(
-                            imageVector = if(item.onComplete) Icons.Filled.Check else Icons.Filled.Close,
-                            tint = if(item.onComplete) Color.Green else Color.Red,
-                            contentDescription = if (item.onComplete) "complete" else "uncomplete",
-                            modifier = Modifier.padding(end = 10.dp)
+                    Box(modifier = Modifier.fillMaxWidth().fillMaxHeight()) {
+                        Text(
+                            "Id: ${item.id}",
+                            fontSize = 20.sp,
+                            color = Color(34, 139, 34),
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(10.dp)
                         )
+                        Row(
+                            modifier = Modifier.fillMaxWidth().fillMaxHeight()
+                                .padding(10.dp),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                modifier = Modifier.width(45.dp).height(45.dp),
+                                //modifier = Modifier.fillMaxWidth().fillMaxHeight(),
+                                imageVector = if (item.onComplete) Icons.Filled.Check else Icons.Filled.Close,
+                                tint = if (item.onComplete) Color(34, 139, 34) else Color.Red,
+                                contentDescription = if (item.onComplete) "complete" else "uncomplete",
+                            )
+                        }
                     }
                 }
             }
         }
-//        val offset by animateFloatAsState(
-//            targetValue = if (swipeableState.currentValue) {
-//                if (swipeableState.offset.value > 0) 0f else -width.toFloat()
-//            } else 0f,
-//            label = "offsetAnimation"
-//        )
 
 
         LaunchedEffect(swipeableState.currentValue) {
-            if(swipeableState.currentValue){
-                Log.d("debug", "${swipeableState.currentValue} offset: ${swipeableState.offset.value}")
-                if(swipeableState.offset.value > 0){
-                    onDelete(item)
-                    //onComplete(item)
-                }else{
-                    //onDelete(item)
-                }
-                swipeableState.animateTo(false)
+            Log.d("debug", "outside ${swipeableState.currentValue} offset: ${swipeableState.offset.value}")
+            if(swipeableState.offset.value > 0){
+                onDelete(item)
+                //onComplete(item)
+            }else if(swipeableState.offset.value < 0){
+                onComplete(item)
+                //onDelete(item)
             }
+            swipeableState.animateTo(SwipeAction.NONE)
         }
+        Log.d("debug", "$expanded")
+        return expanded
     }
 
     @Composable
